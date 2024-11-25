@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import logging
 import bcrypt
@@ -7,7 +8,6 @@ from tqdm import tqdm
 import os
 import gzip
 
-# Basic logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class HashCracker:
@@ -29,81 +29,17 @@ class HashCracker:
             'sha3_384': hashlib.sha3_384,
             'sha3_512': hashlib.sha3_512,
             'sha512': hashlib.sha512,
-            'bcrypt': bcrypt.hashpw,
+            'bcrypt': bcrypt.checkpw,
             'scrypt': scrypt.verify,
             'argon2': argon2.verify
         }
 
-
-    def crack_hash(self, hash_value, hash_type):
-        """
-        Attempt to crack a hash using the default password list.
-
-        Args:
-            hash_value (str): The hash to crack.
-            hash_type (str): The type of hash to use.
-
-        Returns:
-            str: The password that matches the hash if found, otherwise None.
-        
-        Raises:
-            ValueError: If the hash type is not supported.
-        """
-        # Ensure the hash type is supported
-        if hash_type not in self.supported_hashes:
-            raise ValueError(f'Invalid hash type: {hash_type}. Supported types are: {list(self.supported_hashes)}')
-
-        # Get the path to the wordlist
-        wordlist_path = self._ensure_wordlist_ready()
-
-        total_lines = self._count_total_lines(wordlist_path)
-
-        logging.info(f"Attempting to crack hash '{hash_value}' using '{hash_type}' with a list of {total_lines} passwords.")
-
-        # Open the wordlist and process line by line
-        with open(wordlist_path, 'r', encoding='latin-1') as file:
-            for line in tqdm(file, desc="Cracking", total=total_lines):
-                password = line.strip()
-
-                # Handle special hash types
-                if hash_type in ['bcrypt', 'scrypt', 'argon2']:
-                    try:
-                        if self.supported_hashes[hash_type](password, hash_value):
-                            return password
-                    except Exception as e:
-                        logging.debug(f"Error verifying password '{password}' with {hash_type}: {e}")
-                else:
-                    # Handle general hash types
-                    hash_function = self.supported_hashes[hash_type]
-                    if hash_function(password.encode()).hexdigest() == hash_value:
-                        return password
-
-        return None
-    
-
-    def _count_total_lines(wordlist_path):
-        # Count the total lines in the wordlist for progress tracking
-        total_lines = None
-        try:
-            total_lines = sum(1 for _ in open(wordlist_path, 'r', encoding='latin-1'))
-        except FileNotFoundError:
-            logging.error(f"Wordlist file not found: {wordlist_path}")
-        return total_lines
-            
-    
     def _ensure_wordlist_ready(self):
-        """
-        Ensures the rockyou.txt wordlist is available and decompressed.
-
-        Returns:
-            str: Path to the wordlist file.
-        """
+        """Ensure the wordlist is ready and decompressed."""
         wordlist_path = self.DEFAULT_WORDLIST
         compressed_path = f"{wordlist_path}.gz"
 
-        # Check if the decompressed wordlist is available
         if not os.path.exists(wordlist_path):
-            # If compressed version exists, decompress it
             if os.path.exists(compressed_path):
                 logging.info(f"Decompressing {compressed_path}...")
                 with gzip.open(compressed_path, 'rb') as gz_file:
@@ -112,19 +48,81 @@ class HashCracker:
                 logging.info(f"{compressed_path} decompressed to {wordlist_path}.")
             else:
                 raise FileNotFoundError(f"Wordlist not found: {wordlist_path} or {compressed_path}")
-
         return wordlist_path
+
+    def _count_total_lines(self, wordlist_path):
+        """Count total lines in the wordlist for progress tracking."""
+        with open(wordlist_path, 'r', encoding='latin-1') as f:
+            return sum(1 for _ in f)
+
+    def _process_chunk(self, lines, hash_value, hash_type):
+        """Process a chunk of lines to find the matching password."""
+        for password in lines:
+            password = password.strip()
+            try:
+                if hash_type in ['bcrypt', 'scrypt', 'argon2']:
+                    if self.supported_hashes[hash_type](password, hash_value):
+                        return password
+                else:
+                    hash_function = self.supported_hashes[hash_type]
+                    if hash_function(password.encode()).hexdigest() == hash_value:
+                        return password
+            except Exception:
+                continue
+        return None
+
+    def crack_hash(self, hash_value, hash_type, max_workers=4, chunk_size=1000):
+        """
+        Attempt to crack a hash using the default password list with concurrency.
+
+        Args:
+            hash_value (str): The hash to crack.
+            hash_type (str): The type of hash to use.
+            max_workers (int): Number of threads to use for parallel processing.
+            chunk_size (int): Number of passwords each thread processes at a time.
+
+        Returns:
+            str: The password that matches the hash if found, otherwise None.
+        """
+        if hash_type not in self.supported_hashes:
+            raise ValueError(f"Invalid hash type: {hash_type}. Supported types are: {list(self.supported_hashes)}")
+
+        wordlist_path = self._ensure_wordlist_ready()
+        total_lines = self._count_total_lines(wordlist_path)
+
+        logging.info(f"Attempting to crack hash '{hash_value}' using '{hash_type}' with {total_lines} passwords.")
+        
+        with open(wordlist_path, 'r', encoding='latin-1') as file:
+            lines = file.readlines()
+
+        # Process lines in chunks using ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for i in range(0, len(lines), chunk_size):
+                chunk = lines[i:i + chunk_size]
+                futures.append(executor.submit(self._process_chunk, chunk, hash_value, hash_type))
+
+            # Use tqdm to show progress
+            for future in tqdm(as_completed(futures), total=len(futures), desc="Cracking"):
+                result = future.result()
+                if result:  # Stop all threads if a match is found
+                    executor.shutdown(wait=False)
+                    return result
+
+        return None  # No match found
 
 def main():
     """Main function for the hash cracking script."""
     parser = argparse.ArgumentParser(description="Crack a password hash.")
     parser.add_argument('hash', help='The hash to crack')
     parser.add_argument('--hash-type', help='The type of hash to use', default='md5')
+    parser.add_argument('--max-workers', type=int, default=4, help='Number of threads for parallel processing')
+    parser.add_argument('--chunk-size', type=int, default=1000, help='Number of passwords per thread chunk')
     args = parser.parse_args()
 
     cracker = HashCracker()
     try:
-        result = cracker.crack_hash(args.hash, args.hash_type)
+        result = cracker.crack_hash(args.hash, args.hash_type, args.max_workers, args.chunk_size)
         if result:
             logging.info(f"[+] Password found: {result}")
         else:
