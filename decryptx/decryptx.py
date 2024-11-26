@@ -1,8 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import hashlib
-import bcrypt
-from passlib.hash import scrypt, argon2
 from tqdm import tqdm
+from decryptx.hash_verifier import HashVerifier
 import pyzipper
 import os
 import gzip
@@ -11,50 +9,40 @@ from decryptx import __version__
 
 class DecryptX:
     """
-    DecryptX is a powerful tool for ethical hacking and security assessment, 
-    designed to evaluate the strength of password hashes and encrypted ZIP files. 
-    It supports a wide range of hash algorithms and enables penetration testers 
-    and cybersecurity professionals to identify vulnerabilities effectively.
+    DecryptX is a powerful tool designed for ethical hacking, penetration testing, 
+    and security assessments. It is focused on evaluating the strength of password 
+    hashes and encrypted ZIP files. DecryptX supports a wide range of cryptographic 
+    hash algorithms and provides features for identifying weaknesses in password security.
+
+    It is particularly useful for cybersecurity professionals and penetration testers 
+    looking to evaluate vulnerabilities in password management systems.
 
     Attributes:
-        DEFAULT_WORDLIST (str): Path to the default wordlist file, typically used for password cracking.
+        DEFAULT_WORDLIST (str): The path to the default wordlist file (typically 'rockyou.txt'),
+                                 which is used for password cracking or brute force attacks.
+        wordlist_path (str): The path to the wordlist to be used during cracking attempts. 
+                             If not provided, the default is used.
+        hash_verifier (HashVerifier): An instance of the HashVerifier class used to verify password hashes.
     """
 
     DEFAULT_WORDLIST = '/usr/share/wordlists/rockyou.txt'
 
     def __init__(self, wordlist_path=None):
         """
-        Initialize the DecryptX class with configurable wordlist and supported hash types.
+        Initializes the DecryptX tool with the specified wordlist for password cracking.
+
+        If no wordlist path is provided, the default wordlist ('rockyou.txt') is used.
 
         Args:
-            wordlist_path (str, optional): Path to a custom wordlist file. If not provided, 
-                                           defaults to the rockyou.txt wordlist.
+            wordlist_path (str, optional): The file path to the wordlist used for cracking password hashes.
+                                           If not specified, it defaults to '/usr/share/wordlists/rockyou.txt'.
         
         Attributes:
-            wordlist_path (str): The path to the wordlist file used for cracking attempts.
-            supported_hashes (dict): A dictionary of supported hash algorithms and their 
-                                     corresponding functions for verification.
-        
-        Raises:
-            FileNotFoundError: If the specified wordlist file does not exist.
+            wordlist_path (str): The file path of the wordlist to use.
+            hash_verifier (HashVerifier): A HashVerifier instance for verifying password hashes.
         """
         self.wordlist_path = wordlist_path or self.DEFAULT_WORDLIST
-        self.supported_hashes = {
-            'blake2b': hashlib.blake2b,
-            'blake2s': hashlib.blake2s,
-            'md5': hashlib.md5,
-            'sha1': hashlib.sha1,
-            'sha224': hashlib.sha224,
-            'sha256': hashlib.sha256,
-            'sha384': hashlib.sha384,
-            'sha3_256': hashlib.sha3_256,
-            'sha3_384': hashlib.sha3_384,
-            'sha3_512': hashlib.sha3_512,
-            'sha512': hashlib.sha512,
-            'bcrypt': self._verify_bcrypt,
-            'scrypt': scrypt.verify,
-            'argon2': argon2.verify,
-        }
+        self.hash_verifier = HashVerifier()
         self._print_banner()
 
     def _ensure_wordlist_ready(self):
@@ -90,44 +78,18 @@ class DecryptX:
             raise
 
     def _process_lines(self, lines, hash_value, hash_type, show_progress=False):
-        """Process the lines (sequentially or in chunks) to find the matching password."""
+        """
+        Process the wordlist lines to crack the hash.
+        """
         iterable = tqdm(lines, desc="🔓 Cracking Hash", unit="password") if show_progress else lines
         for password in iterable:
+            password = password.strip()
             try:
-                password = password.strip()
-                if hash_type in ['bcrypt', 'scrypt', 'argon2']:
-                    if self.supported_hashes[hash_type](password, hash_value):
-                        return password
-                else:
-                    hash_function = self.supported_hashes[hash_type]
-                    if hash_function(password.encode()).hexdigest() == hash_value:
-                        return password
-
+                if self.hash_verifier.verify_hash(password, hash_value, hash_type):
+                    return password
             except Exception as ex:
-                decryptXLogger.debug(f"⚠️ Error processing password '{password}': {ex}")
+                decryptXLogger.debug(f"⚠️ Error verifying password '{password}': {ex}")
         return None
-    
-    def _verify_bcrypt(self, password, hash_value):
-        """
-        Verify a bcrypt password against a hash.
-
-        Args:
-            password (str): The plaintext password.
-            hash_value (str): The bcrypt hash.
-
-        Returns:
-            bool: True if the password matches, otherwise False.
-        """
-        try:
-            password_bytes = password.encode('latin-1')
-            hash_bytes = hash_value.encode('latin-1')
-            if bcrypt.checkpw(password_bytes, hash_bytes):
-                return True
-            else:
-                return False
-        except Exception as ex:
-            decryptXLogger.error(f"❌ Error verifying bcrypt password: {password}. Exception: {ex}")
-            return False
 
     def crack_hash(self, hash_value, hash_type, max_workers=4, chunk_size=None):
         """
@@ -142,10 +104,6 @@ class DecryptX:
         Returns:
             str: The password that matches the hash if found, otherwise None.
         """
-        if hash_type not in self.supported_hashes:
-            decryptXLogger.error(f"💀 Invalid hash type: {hash_type}. Supported types are: {list(self.supported_hashes)}")
-            raise ValueError(f"Invalid hash type: {hash_type}. Supported types are: {list(self.supported_hashes)}")
-        
         wordlist_path = self._ensure_wordlist_ready()
         total_lines = self._count_total_lines(wordlist_path)
 
@@ -165,7 +123,7 @@ class DecryptX:
                         chunk = lines[i:i + chunk_size]
                         futures.append(executor.submit(self._process_lines, chunk, hash_value, hash_type))
 
-                    for future in tqdm(as_completed(futures), total=len(futures), desc="Cracking"):
+                    for future in tqdm(as_completed(futures), total=len(futures), desc="🔓 Cracking Hash"):
                         try:
                             result = future.result()
                             if result:
