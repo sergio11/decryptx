@@ -1,6 +1,6 @@
-# 🔐 Ethical Hacking Tool: Password & Hash Cracking 🛠️
+# 🔐 DecryptX: Advanced Hash and Password Security Assessment Tool 🛠️
 
-Welcome to **CrackIt**, a Python-based ethical hacking tool designed to help security professionals and enthusiasts perform **password and hash cracking**, as well as decrypt **ZIP files**. 🚀  
+DecryptX is a professional-grade ethical hacking utility designed for cybersecurity experts and penetration testers. Specializing in cracking password hashes and encrypted ZIP files, it empowers users to evaluate the robustness of their security implementations. With support for industry-standard hash algorithms and encrypted archives, DecryptX delivers precision, speed, and reliability in identifying vulnerabilities before attackers do.
 
 > ⚠️ **Disclaimer**: This tool is intended for ethical hacking and educational purposes only. Always ensure you have authorization before testing any systems.
 
