@@ -3,3 +3,4 @@ bcrypt==4.2.1
 tqdm==4.67.1
 passlib==1.7.4
 colorama==0.4.6
+pyzipper==0.3.6
