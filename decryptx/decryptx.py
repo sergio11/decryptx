@@ -91,7 +91,7 @@ class DecryptX:
 
     def _process_lines(self, lines, hash_value, hash_type, show_progress=False):
         """Process the lines (sequentially or in chunks) to find the matching password."""
-        iterable = tqdm(lines, desc="Cracking") if show_progress else lines
+        iterable = tqdm(lines, desc="🔓 Cracking Hash", unit="password") if show_progress else lines
         for password in iterable:
             try:
                 password = password.strip()
@@ -204,18 +204,13 @@ class DecryptX:
                 decryptXLogger.info(f"🔓 Attempting to crack the ZIP file: {zip_file} using wordlist: {self.wordlist_path}")
                 with open(self.wordlist_path, 'r', encoding='latin-1') as f:
                     passwords = f.readlines()
-                    
-                    # Iterate through the passwords in the wordlist
-                    for password in tqdm(passwords, desc="Decrypting ZIP", unit="password"):
+                    for password in tqdm(passwords, desc="🔓 Breaching ZIP Security", unit="password"):
                         try:
-                            zipf.pwd = password.strip()
+                            password = password.strip()
+                            zipf.pwd = password.encode('latin-1')
                             zipf.extractall()
-                            password = password.decode().strip()
-                            decryptXLogger.info(f"🎯 Password found for ZIP: {password}")
                             return password
-                        
-                        except (RuntimeError, pyzipper.BadZipFile) as e:
-                            decryptXLogger.debug(f"❌ Failed with password: {password.strip().decode()} - {str(e)}")
+                        except (RuntimeError, pyzipper.BadZipFile, Exception) as e:
                             continue
 
         except FileNotFoundError:
