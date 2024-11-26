@@ -10,15 +10,33 @@ from decryptx.utils.logger import decryptXLogger
 from decryptx import __version__
 
 class DecryptX:
+    """
+    DecryptX is a powerful tool for ethical hacking and security assessment, 
+    designed to evaluate the strength of password hashes and encrypted ZIP files. 
+    It supports a wide range of hash algorithms and enables penetration testers 
+    and cybersecurity professionals to identify vulnerabilities effectively.
+
+    Attributes:
+        DEFAULT_WORDLIST (str): Path to the default wordlist file, typically used for password cracking.
+    """
 
     DEFAULT_WORDLIST = '/usr/share/wordlists/rockyou.txt'
 
     def __init__(self, wordlist_path=None):
         """
-        Initialize the HashCracker class with supported hash types.
-        
+        Initialize the DecryptX class with configurable wordlist and supported hash types.
+
         Args:
-            wordlist_path (str): Path to a custom wordlist. Defaults to DEFAULT_WORDLIST if not provided.
+            wordlist_path (str, optional): Path to a custom wordlist file. If not provided, 
+                                           defaults to the rockyou.txt wordlist.
+        
+        Attributes:
+            wordlist_path (str): The path to the wordlist file used for cracking attempts.
+            supported_hashes (dict): A dictionary of supported hash algorithms and their 
+                                     corresponding functions for verification.
+        
+        Raises:
+            FileNotFoundError: If the specified wordlist file does not exist.
         """
         self.wordlist_path = wordlist_path or self.DEFAULT_WORDLIST
         self.supported_hashes = {
@@ -35,9 +53,9 @@ class DecryptX:
             'sha512': hashlib.sha512,
             'bcrypt': self._verify_bcrypt,
             'scrypt': scrypt.verify,
-            'argon2': argon2.verify
+            'argon2': argon2.verify,
         }
-        decryptXLogger.info("🚀 HashCracker initialized. Ready to crack some hashes!")
+        self._print_banner()
 
     def _ensure_wordlist_ready(self):
         """Ensure the wordlist is ready and decompressed."""
@@ -103,9 +121,7 @@ class DecryptX:
         try:
             password_bytes = password.encode('latin-1')
             hash_bytes = hash_value.encode('latin-1')
-            # Use bcrypt's checkpw function to verify the password against the hash
             if bcrypt.checkpw(password_bytes, hash_bytes):
-                decryptXLogger.info(f"🎉 Password matched: {password}")
                 return True
             else:
                 return False
@@ -143,7 +159,6 @@ class DecryptX:
             if chunk_size is None:
                 result = self._process_lines(lines, hash_value, hash_type, show_progress=True)
             else:
-                # Process lines in chunks using ThreadPoolExecutor if chunk_size is provided
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     futures = []
                     for i in range(0, len(lines), chunk_size):
@@ -167,13 +182,12 @@ class DecryptX:
             decryptXLogger.error(f"🔥 Unexpected error: {e}")
         return result
     
-    def crack_zip(self, zip_file, wordlist):
+    def crack_zip(self, zip_file):
         """
         Attempt to crack a password-protected ZIP file using a wordlist.
 
         Args:
             zip_file (str): Path to the ZIP file to crack.
-            wordlist (str): Path to the password list (wordlist) to use for cracking.
 
         Returns:
             str: The password if found, otherwise None.
@@ -187,8 +201,8 @@ class DecryptX:
             # Open the ZIP file for cracking with AES decryption support
             with pyzipper.AESZipFile(zip_file) as zipf:
                 zipf.setpassword(None)  # Start without a password
-                decryptXLogger.info(f"🔓 Attempting to crack the ZIP file: {zip_file} using wordlist: {wordlist}")
-                with open(wordlist, 'rb') as f:
+                decryptXLogger.info(f"🔓 Attempting to crack the ZIP file: {zip_file} using wordlist: {self.wordlist_path}")
+                with open(self.wordlist_path, 'r', encoding='latin-1') as f:
                     passwords = f.readlines()
                     
                     # Iterate through the passwords in the wordlist
@@ -214,4 +228,25 @@ class DecryptX:
             decryptXLogger.error(f"⚠️ Unexpected error while cracking ZIP: {str(e)}")
         decryptXLogger.info("❌ No matching password found in the wordlist.")
         return None
+    
+    def _print_banner(self):
+        banner = f"""
+            ██████████                                                      █████    █████ █████
+            ░░███░░░░███                                                   ░░███    ░░███ ░░███ 
+            ░███   ░░███  ██████   ██████  ████████  █████ ████ ████████  ███████   ░░███ ███  
+            ░███    ░███ ███░░███ ███░░███░░███░░███░░███ ░███ ░░███░░███░░░███░     ░░█████   
+            ░███    ░███░███████ ░███ ░░░  ░███ ░░░  ░███ ░███  ░███ ░███  ░███       ███░███  
+            ░███    ███ ░███░░░  ░███  ███ ░███      ░███ ░███  ░███ ░███  ░███ ███  ███ ░░███ 
+            ██████████  ░░██████ ░░██████  █████     ░░███████  ░███████   ░░█████  █████ █████
+            ░░░░░░░░░░    ░░░░░░   ░░░░░░  ░░░░░       ░░░░░███  ░███░░░     ░░░░░  ░░░░░ ░░░░░ 
+                                                    ███ ░███  ░███                           
+                                                    ░░██████   █████                          
+                                                    ░░░░░░   ░░░░░                           
+        DecryptX: Advanced Hash and Password Security Assessment Tool 🔓🖤 (Version: {__version__})
+        """
+        print(banner)
+    
+
+
+
 
