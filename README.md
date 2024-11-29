@@ -209,10 +209,12 @@ DecryptX is developed and maintained by **Sergio Sánchez Sánchez** (Dream Soft
 
 ## Visitors Count
 
+
+<img width="auto" src="https://profile-counter.glitch.me/decryptx/count.svg" />
  
  ## Please Share & Star the repository to keep me motivated.
-  <a href = "https://github.com/sergio11/nemesys/stargazers">
-     <img src = "https://img.shields.io/github/stars/sergio11/nemesys" />
+  <a href = "https://github.com/sergio11/decryptx/stargazers">
+     <img src = "https://img.shields.io/github/stars/sergio11/decryptx" />
   </a>
 
 
