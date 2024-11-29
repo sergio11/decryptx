@@ -131,6 +131,64 @@ pip install -r requirements.txt
 This will automatically install all the dependencies listed in the requirements.txt file for you.
 
 
+## 📜 **Usage Examples**
+
+Below are some examples of how to use DecryptX for different tasks. Make sure to replace the placeholders like `<mode>`, `<hash-type>`, and `<path-to-wordlist>` with the appropriate values for your use case.
+
+### 1. **Cracking a ZIP File**
+To attempt to crack a password-protected ZIP file using a wordlist, use the following command:
+
+```bash
+sudo /home/kali/Desktop/HashBreakerX-Kali/bin/python decryptx_cli.py --mode zip protected.zip
+```
+
+### 2. Cracking a Hash (bcrypt)
+To crack a bcrypt hash, use the following example. You need to specify the hash and the hash type (bcrypt in this case):
+
+```bash
+sudo /home/kali/Desktop/HashBreakerX-Kali/bin/python decryptx_cli.py --mode hash '$2y$12$SZZ/gpJAr483f1kV2iaFGuynxKzyXKRvB1xy8VRQMSjqvAP42IYPa' --hash-type bcrypt --wordlist ./wordlist_test.txt
+```
+
+### 3. Cracking MD4 Hash
+To crack an MD4 hash using a specific wordlist and setting a limit on the number of workers and chunk size, use the following command:
+
+```bash
+sudo /home/kali/Desktop/HashBreakerX-Kali/bin/python decryptx_cli.py --mode hash 'a60d68f8f094bddb23d7ee23a37c831a' --hash-type md4 --max-workers 8 --chunk-size 500 --wordlist ./wordlist_test.txt
+```
+
+### 4. Cracking RIPEMD-160 Hash
+For cracking a RIPEMD-160 hash, specify the hash type (ripemd160), number of workers, and chunk size:
+
+```bash
+sudo /home/kali/Desktop/HashBreakerX-Kali/bin/python decryptx_cli.py --mode hash '72c931bcdede01f4b5ef55a9a4f40405e3d516cb' --hash-type ripemd160 --max-workers 8 --chunk-size 500 --wordlist ./wordlist_test.txt
+```
+
+### 5. Cracking PBKDF2-HMAC (with SHA-256)
+To crack a PBKDF2-HMAC hash with SHA-256, use the following command:
+
+```bash
+sudo /home/kali/Desktop/HashBreakerX-Kali/bin/python decryptx_cli.py --mode hash '4b4fbc4642c4c349a06bb67f44ee764d8a15cf540b0a73943e1c37c8a450828f' --hash-type pbkdf2_hmac --max-workers 8 --chunk-size 500
+```
+
+### 6. Cracking CRC32 Hash
+For cracking a CRC32 hash, use the following:
+
+```bash
+sudo /home/kali/Desktop/HashBreakerX-Kali/bin/python decryptx_cli.py --mode hash 'b3eb4cc1' --hash-type crc32 --max-workers 8 --chunk-size 500
+```
+
+### General Command Structure
+Here is the general structure for running the tool with any mode and hash type:
+
+```bash
+sudo /path/to/decryptx_cli.py --mode <mode> --hash-type <hash-type> --wordlist <path-to-wordlist> <additional-options>
+```
+Where:
+- `<mode>` is either `zip` or `hash` depending on your task.
+- `<hash-type>` is the type of hash you're cracking (e.g., `bcrypt`, `md5`, `sha256`).
+- `<path-to-wordlist>` is the path to your wordlist file.
+- `<additional-options>` can include options like `--max-workers`, `--chunk-size`, etc.
+
 ## ⚠️ **Legal Notice**  
 
 DecryptX should only be used on systems where you have permission to perform tests. Unauthorized use may violate local or international laws, and the author of this tool is not responsible for misuse.  
