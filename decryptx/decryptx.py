@@ -45,51 +45,6 @@ class DecryptX:
         self.hash_verifier = HashVerifier()
         self._print_banner()
 
-    def _ensure_wordlist_ready(self):
-        """Ensure the wordlist is ready and decompressed."""
-        wordlist_path = self.wordlist_path
-        compressed_path = f"{wordlist_path}.gz"
-
-        if not os.path.exists(wordlist_path):
-            if os.path.exists(compressed_path):
-                decryptXLogger.info(f"📦 Decompressing {compressed_path}...")
-                with gzip.open(compressed_path, 'rb') as gz_file:
-                    with open(wordlist_path, 'wb') as out_file:
-                        out_file.write(gz_file.read())
-                decryptXLogger.info(f"✅ {compressed_path} decompressed to {wordlist_path}.")
-            else:
-                decryptXLogger.error(f"🚫 Wordlist not found: {wordlist_path} or {compressed_path}")
-                raise FileNotFoundError(f"Wordlist not found: {wordlist_path} or {compressed_path}")
-        return wordlist_path
-    
-    def _count_total_lines(self, wordlist_path):
-        """Count total lines in the wordlist for progress tracking."""
-        try:
-            decryptXLogger.info(f"📜 Counting lines in wordlist: {wordlist_path}")
-            with open(wordlist_path, 'r', encoding='latin-1') as f:
-                line_count = sum(1 for _ in f)
-            decryptXLogger.info(f"✅ Total lines in wordlist: {line_count} passwords found.")
-            return line_count
-        except FileNotFoundError:
-            decryptXLogger.error(f"❌ Wordlist file not found: {wordlist_path}")
-            raise
-        except Exception as ex:
-            decryptXLogger.error(f"❌ An error occurred while counting lines: {ex}")
-            raise
-
-    def _process_lines(self, lines, hash_value, hash_type, show_progress=False):
-        """
-        Process the wordlist lines to crack the hash.
-        """
-        iterable = tqdm(lines, desc="🔓 Cracking Hash", unit="password") if show_progress else lines
-        for password in iterable:
-            password = password.strip()
-            try:
-                if self.hash_verifier.verify_hash(password, hash_value, hash_type):
-                    return password
-            except Exception as ex:
-                decryptXLogger.debug(f"⚠️ Error verifying password '{password}': {ex}")
-        return None
 
     def crack_hash(self, hash_value, hash_type, max_workers=4, chunk_size=None):
         """
@@ -139,13 +94,15 @@ class DecryptX:
         except Exception as e:
             decryptXLogger.error(f"🔥 Unexpected error: {e}")
         return result
-    
-    def crack_zip(self, zip_file):
+
+    def crack_zip(self, zip_file, max_workers=4, chunk_size=None):
         """
-        Attempt to crack a password-protected ZIP file using a wordlist.
+        Attempt to crack a password-protected ZIP file using a wordlist with concurrency.
 
         Args:
             zip_file (str): Path to the ZIP file to crack.
+            max_workers (int): Number of threads to use for parallel processing.
+            chunk_size (int): Number of passwords per chunk. Adjust according to the size of the wordlist.
 
         Returns:
             str: The password if found, otherwise None.
@@ -156,21 +113,31 @@ class DecryptX:
             Exception: If an unexpected error occurs.
         """
         try:
+            result = None
             # Open the ZIP file for cracking with AES decryption support
             with pyzipper.AESZipFile(zip_file) as zipf:
                 zipf.setpassword(None)  # Start without a password
                 decryptXLogger.info(f"🔓 Attempting to crack the ZIP file: {zip_file} using wordlist: {self.wordlist_path}")
+                
                 with open(self.wordlist_path, 'r', encoding='latin-1') as f:
                     passwords = f.readlines()
-                    for password in tqdm(passwords, desc="🔓 Breaching ZIP Security", unit="password"):
-                        try:
-                            password = password.strip()
-                            zipf.pwd = password.encode('latin-1')
-                            zipf.extractall()
-                            return password
-                        except (RuntimeError, pyzipper.BadZipFile, Exception) as e:
-                            continue
 
+                if chunk_size is None:
+                    result = self._crack_zip_chunk(zipf, passwords, show_progress=True)
+                else:
+                    chunks = [passwords[i:i + chunk_size] for i in range(0, len(passwords), chunk_size)]
+                    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                        futures = []
+                        for chunk in chunks:
+                            futures.append(executor.submit(self._crack_zip_chunk, zipf, chunk))
+                        for future in tqdm(as_completed(futures), total=len(futures), desc="🔓 Breaching ZIP Security", unit="chunk"):
+                            try:
+                                result = future.result()
+                                if result:
+                                    executor.shutdown(wait=False)
+                                    break
+                            except Exception as e:
+                                decryptXLogger.error(f"⚠️ Error processing a chunk: {e}")
         except FileNotFoundError:
             decryptXLogger.error(f"💥 The ZIP file '{zip_file}' does not exist. Check the path and try again.")
             raise
@@ -179,7 +146,77 @@ class DecryptX:
             raise
         except Exception as e:
             decryptXLogger.error(f"⚠️ Unexpected error while cracking ZIP: {str(e)}")
+        
         decryptXLogger.info("❌ No matching password found in the wordlist.")
+        return result
+
+    def _crack_zip_chunk(self, zipf, password_chunk, show_progress=False):
+        """
+        Attempt to crack a password-protected ZIP file using a chunk of passwords.
+
+        Args:
+            zipf (pyzipper.AESZipFile): The opened ZIP file object.
+            password_chunk (list): List of passwords to attempt in this chunk.
+
+        Returns:
+            str: The password if found, otherwise None.
+        """
+        iterable = tqdm(password_chunk, desc="🔓 Breaching ZIP Security", unit="password") if show_progress else password_chunk
+        password = None
+        for password in iterable:
+            try:
+                password = password.strip()
+                zipf.pwd = password.encode('latin-1')
+                zipf.extractall()
+                break
+            except (RuntimeError, pyzipper.BadZipFile, Exception) as e:
+                continue
+        return password
+    
+    def _ensure_wordlist_ready(self):
+        """Ensure the wordlist is ready and decompressed."""
+        wordlist_path = self.wordlist_path
+        compressed_path = f"{wordlist_path}.gz"
+
+        if not os.path.exists(wordlist_path):
+            if os.path.exists(compressed_path):
+                decryptXLogger.info(f"📦 Decompressing {compressed_path}...")
+                with gzip.open(compressed_path, 'rb') as gz_file:
+                    with open(wordlist_path, 'wb') as out_file:
+                        out_file.write(gz_file.read())
+                decryptXLogger.info(f"✅ {compressed_path} decompressed to {wordlist_path}.")
+            else:
+                decryptXLogger.error(f"🚫 Wordlist not found: {wordlist_path} or {compressed_path}")
+                raise FileNotFoundError(f"Wordlist not found: {wordlist_path} or {compressed_path}")
+        return wordlist_path
+    
+    def _count_total_lines(self, wordlist_path):
+        """Count total lines in the wordlist for progress tracking."""
+        try:
+            decryptXLogger.info(f"📜 Counting lines in wordlist: {wordlist_path}")
+            with open(wordlist_path, 'r', encoding='latin-1') as f:
+                line_count = sum(1 for _ in f)
+            decryptXLogger.info(f"✅ Total lines in wordlist: {line_count} passwords found.")
+            return line_count
+        except FileNotFoundError:
+            decryptXLogger.error(f"❌ Wordlist file not found: {wordlist_path}")
+            raise
+        except Exception as ex:
+            decryptXLogger.error(f"❌ An error occurred while counting lines: {ex}")
+            raise
+
+    def _process_lines(self, lines, hash_value, hash_type, show_progress=False):
+        """
+        Process the wordlist lines to crack the hash.
+        """
+        iterable = tqdm(lines, desc="🔓 Cracking Hash", unit="password") if show_progress else lines
+        for password in iterable:
+            password = password.strip()
+            try:
+                if self.hash_verifier.verify_hash(password, hash_value, hash_type):
+                    return password
+            except Exception as ex:
+                decryptXLogger.debug(f"⚠️ Error verifying password '{password}': {ex}")
         return None
     
     def _print_banner(self):
