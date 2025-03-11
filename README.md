@@ -209,7 +209,7 @@ Where:
 DecryptX should only be used on systems where you have permission to perform tests. Unauthorized use may violate local or international laws, and the author of this tool is not responsible for misuse.  
 
 ## 🛡️ Legal
-The author of Nemesys is not responsible for any misuse or damage caused by this tool. Use responsibly and comply with all local laws.
+This tool is intended for educational and ethical hacking purposes only. Always ensure you have proper authorization before testing any systems.
 
 ## Acknowledgements 🙏
 
