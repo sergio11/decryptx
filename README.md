@@ -15,6 +15,17 @@ DecryptX is a professional-grade ethical hacking tool designed for cybersecurity
   <img src="doc/screenshots/picture_1.PNG" />
 </p>
 
+## ⚠️ Disclaimer  
+
+**DecryptX** was created **solely for educational and research purposes** as part of my **cybersecurity learning journey**. This project serves as a **practical application of the concepts acquired during my ethical hacking training**, allowing me to **experiment in a controlled environment** and include it in my **cybersecurity portfolio**.  
+
+This tool is designed **exclusively for ethical security assessments** and **authorized penetration testing**. It must **only be used on systems for which the user has explicit permission**.  
+
+Any **unauthorized use of DecryptX to crack passwords or gain unauthorized access to encrypted data** is **illegal** and may violate laws.  
+
+**I take no responsibility for any misuse of this tool.** Users must ensure they operate **within legal and ethical boundaries** at all times.  
+
+
 ## 🌟 **Explore My Other Open-Source Ethical Hacking Tools**
 
 If you're interested in more powerful tools for ethical hacking, make sure to check out my other open-source projects designed to help cybersecurity professionals and penetration testers:
@@ -204,12 +215,15 @@ Where:
 - `<path-to-wordlist>` is the path to your wordlist file.
 - `<additional-options>` can include options like `--max-workers`, `--chunk-size`, etc.
 
-## ⚠️ **Legal Notice**  
+## ⚠️ Disclaimer  
 
-DecryptX should only be used on systems where you have permission to perform tests. Unauthorized use may violate local or international laws, and the author of this tool is not responsible for misuse.  
+**DecryptX** was created **solely for educational and research purposes** as part of my **cybersecurity learning journey**. This project serves as a **practical application of the concepts acquired during my ethical hacking training**, allowing me to **experiment in a controlled environment** and include it in my **cybersecurity portfolio**.  
 
-## 🛡️ Legal
-This tool is intended for educational and ethical hacking purposes only. Always ensure you have proper authorization before testing any systems.
+This tool is designed **exclusively for ethical security assessments** and **authorized penetration testing**. It must **only be used on systems for which the user has explicit permission**.  
+
+Any **unauthorized use of DecryptX to crack passwords or gain unauthorized access to encrypted data** is **illegal** and may violate laws.  
+
+**I take no responsibility for any misuse of this tool.** Users must ensure they operate **within legal and ethical boundaries** at all times.  
 
 ## Acknowledgements 🙏
 
